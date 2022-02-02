@@ -1,0 +1,59 @@
+version: "3.3"
+
+services:
+  
+  spark-master:
+    image: cluster-apache-spark:3.0.2
+    ports:
+      - "9090:8080"
+      - "7077:7077"
+    networks:
+      - perseus_net
+    volumes:
+       - ./data:/opt/spark-data
+    environment:
+      - SPARK_LOCAL_IP=spark-master
+      - SPARK_WORKLOAD=master
+    depends_on:
+      - database
+    command:
+      bash -c "echo \"DEV INFO Install Python Requirements ...\" &&
+            pip3 install -r /opt/spark-data/pyfiles/requirements.txt &&
+            echo \"DEV INFO Finish Install Python Requirements ...\" &&
+
+            echo \"DEV INFO Starting Python Scripts ...\" &&
+            python -u /opt/spark-data/pyfiles/data_engineer_pipe.py"
+
+  spark-worker:
+    image: cluster-apache-spark:3.0.2
+    ports:
+      - "9091:8080"
+      - "7000:7000"
+    networks:
+      - perseus_net
+    depends_on:
+      - spark-master
+    environment:
+      - SPARK_MASTER=spark://spark-master:7077
+      - SPARK_WORKER_CORES=1
+      - SPARK_WORKER_MEMORY=1G
+      - SPARK_DRIVER_MEMORY=1G
+      - SPARK_EXECUTOR_MEMORY=1G
+      - SPARK_WORKLOAD=worker
+      - SPARK_LOCAL_IP=spark-worker
+    volumes:
+       - ./data:/opt/spark-data
+
+  database:
+    image: postgres:11.7-alpine
+    ports: 
+      - "5432:5432"
+    networks:
+      - perseus_net
+    environment: 
+      - POSTGRES_PASSWORD=perseus
+
+networks:
+  perseus_net:
+    driver: bridge
+    
